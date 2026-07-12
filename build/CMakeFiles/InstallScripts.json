@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"D:/Dev/ActionFlow-Engine/build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

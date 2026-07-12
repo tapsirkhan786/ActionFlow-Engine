@@ -1,0 +1,10 @@
+^D:\DEV\ACTIONFLOW-ENGINE\BUILD\CMAKEFILES\046DE694BF1419DD698F33474DF6190A\GENERATE.STAMP.RULE
+setlocal
+D:\cmake\bin\cmake.exe -SD:/Dev/ActionFlow-Engine -BD:/Dev/ActionFlow-Engine/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/Dev/ActionFlow-Engine/build/ActionFlowEngine.slnx
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
