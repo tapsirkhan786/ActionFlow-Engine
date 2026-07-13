@@ -272,6 +272,9 @@ geometryv_EXECUTABLE:FILEPATH=geometryv_EXECUTABLE-NOTFOUND
 //The directory containing a CMake configuration file for glslang.
 glslang_DIR:PATH=D:/Dev/vcpkg/installed/x64-windows/share/glslang
 
+//The directory containing a CMake configuration file for imgui.
+imgui_DIR:PATH=D:/Dev/vcpkg/installed/x64-windows/share/imgui
+
 //The directory containing a CMake configuration file for lodepng.
 lodepng_DIR:PATH=D:/Dev/vcpkg/installed/x64-windows/share/lodepng
 
