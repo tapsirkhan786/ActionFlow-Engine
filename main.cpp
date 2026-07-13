@@ -13,10 +13,24 @@ struct PosColorVertex {
     uint32_t abgr;
 };
 
-static PosColorVertex triangleVertices[] = {
-    { 0.0f,  0.5f, 0.0f, 0xff0000ff }, // top (red)
-    { 0.5f, -0.5f, 0.0f, 0xff00ff00 }, // bottom-right (green)
-    {-0.5f, -0.5f, 0.0f, 0xffff0000 }, // bottom-left (blue)
+static PosColorVertex cubeVertices[] = {
+    {-0.5f,  0.5f,  0.5f, 0xff0000ff }, // 0: front-top-left    (red)
+    { 0.5f,  0.5f,  0.5f, 0xff00ff00 }, // 1: front-top-right   (green)
+    {-0.5f, -0.5f,  0.5f, 0xffff0000 }, // 2: front-bottom-left (blue)
+    { 0.5f, -0.5f,  0.5f, 0xffffff00 }, // 3: front-bottom-right(yellow)
+    {-0.5f,  0.5f, -0.5f, 0xffff00ff }, // 4: back-top-left     (magenta)
+    { 0.5f,  0.5f, -0.5f, 0xff00ffff }, // 5: back-top-right    (cyan)
+    {-0.5f, -0.5f, -0.5f, 0xffffffff }, // 6: back-bottom-left  (white)
+    { 0.5f, -0.5f, -0.5f, 0xff000000 }, // 7: back-bottom-right (black)
+};
+
+static const uint16_t cubeIndices[] = {
+    0, 1, 2,  1, 3, 2,  // front face
+    4, 6, 5,  5, 6, 7,  // back face
+    4, 0, 6,  0, 2, 6,  // left face
+    1, 5, 3,  5, 7, 3,  // right face
+    4, 5, 0,  5, 1, 0,  // top face
+    2, 3, 6,  3, 7, 6,  // bottom face
 };
 
 // Shader file ko memory me load karne ka helper function
@@ -78,6 +92,14 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    // Camera state
+    float camPos[3] = { 0.0f, 0.0f, -3.0f };
+    float camYaw = 0.0f;   // left-right rotation
+    float camPitch = 0.0f; // up-down rotation
+    float camSpeed = 3.0f; // units per second
+
+    SDL_SetRelativeMouseMode(SDL_TRUE); // mouse cursor hide + lock kar
+
     bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030ff, 1.0f, 0);
     bgfx::setViewRect(0, 0, 0, 1280, 720);
 
@@ -89,7 +111,11 @@ int main(int argc, char* argv[]) {
         .end();
 
     bgfx::VertexBufferHandle vbh = bgfx::createVertexBuffer(
-        bgfx::makeRef(triangleVertices, sizeof(triangleVertices)), layout
+        bgfx::makeRef(cubeVertices, sizeof(cubeVertices)), layout
+    );
+
+    bgfx::IndexBufferHandle ibh = bgfx::createIndexBuffer(
+        bgfx::makeRef(cubeIndices, sizeof(cubeIndices))
     );
 
     // Shaders load kar aur program banao
@@ -104,19 +130,71 @@ int main(int argc, char* argv[]) {
             if (e.type == SDL_QUIT) {
                 running = false;
             }
+            if (e.type == SDL_MOUSEMOTION) {
+                float sensitivity = 0.003f;
+                camYaw += e.motion.xrel * sensitivity;
+                camPitch -= e.motion.yrel * sensitivity;
+
+                // Pitch ko limit kar (upar-neeche zyada na ghoome)
+                if (camPitch > 1.5f) camPitch = 1.5f;
+                if (camPitch < -1.5f) camPitch = -1.5f;
+            }
+            if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
+                running = false;
+            }
         }
 
-        // Camera aur projection set kar (simple 2D-facing view)
+        // Delta time nikaal (frame ke beech ka time)
+        static uint32_t lastTime = SDL_GetTicks();
+        uint32_t currentTime = SDL_GetTicks();
+        float dt = (currentTime - lastTime) / 1000.0f;
+        lastTime = currentTime;
+
+        // Keyboard input se movement
+        const Uint8* keys = SDL_GetKeyboardState(NULL);
+        float forward[3] = { bx::sin(camYaw), 0.0f, bx::cos(camYaw) };
+        float right[3]   = { bx::cos(camYaw), 0.0f, -bx::sin(camYaw) };
+
+        if (keys[SDL_SCANCODE_W]) {
+            camPos[0] += forward[0] * camSpeed * dt;
+            camPos[2] += forward[2] * camSpeed * dt;
+        }
+        if (keys[SDL_SCANCODE_S]) {
+            camPos[0] -= forward[0] * camSpeed * dt;
+            camPos[2] -= forward[2] * camSpeed * dt;
+        }
+        if (keys[SDL_SCANCODE_A]) {
+            camPos[0] -= right[0] * camSpeed * dt;
+            camPos[2] -= right[2] * camSpeed * dt;
+        }
+        if (keys[SDL_SCANCODE_D]) {
+            camPos[0] += right[0] * camSpeed * dt;
+            camPos[2] += right[2] * camSpeed * dt;
+        }
+        if (keys[SDL_SCANCODE_SPACE]) camPos[1] += camSpeed * dt;
+        if (keys[SDL_SCANCODE_LCTRL]) camPos[1] -= camSpeed * dt;
+
+        // Camera "look at" point nikaal (yaw/pitch se)
+        float lookX = camPos[0] + bx::sin(camYaw) * bx::cos(camPitch);
+        float lookY = camPos[1] + bx::sin(camPitch);
+        float lookZ = camPos[2] + bx::cos(camYaw) * bx::cos(camPitch);
+
         float view[16];
         float proj[16];
-        bx::mtxLookAt(view, {0.0f, 0.0f, -3.0f}, {0.0f, 0.0f, 0.0f});
+        bx::mtxLookAt(view, {camPos[0], camPos[1], camPos[2]}, {lookX, lookY, lookZ});
         bx::mtxProj(proj, 60.0f, 1280.0f / 720.0f, 0.1f, 100.0f, bgfx::getCaps()->homogeneousDepth);
         bgfx::setViewTransform(0, view, proj);
 
         bgfx::touch(0);
 
-        // Triangle draw kar
+        // Cube ab static rahega apni jagah (rotate nahi karega, camera hi ghoomega)
+        float mtx[16];
+        bx::mtxIdentity(mtx);
+        bgfx::setTransform(mtx);
+
+        // Cube draw kar
         bgfx::setVertexBuffer(0, vbh);
+        bgfx::setIndexBuffer(ibh);
         bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS);
         bgfx::submit(0, program);
 
@@ -124,6 +202,7 @@ int main(int argc, char* argv[]) {
     }
 
     bgfx::destroy(vbh);
+    bgfx::destroy(ibh);
     bgfx::destroy(program);
     bgfx::shutdown();
     SDL_DestroyWindow(window);
